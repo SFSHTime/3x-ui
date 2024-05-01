@@ -1,12 +1,13 @@
 # ========================================================
 # Stage: Builder
 # ========================================================
-FROM golang:1.22-alpine AS builder
+FROM golang:1.22 AS builder
 WORKDIR /app
 ARG TARGETARCH
 
-RUN apk --no-cache --update add \
-  build-base \
+# 由于Ubuntu较大，更新以及安装软件包可能需要更多时间
+RUN apt-get update && apt-get install -y \
+  build-essential \
   gcc \
   wget \
   unzip
@@ -21,20 +22,22 @@ RUN ./DockerInit.sh "$TARGETARCH"
 # ========================================================
 # Stage: Final Image of 3x-ui
 # ========================================================
-FROM alpine
+FROM ubuntu:22.04
 ENV TZ=Asia/Tehran
 WORKDIR /app
 
-RUN apk add --no-cache --update \
+RUN apt-get update && apt-get install -y \
   ca-certificates \
   tzdata \
   fail2ban \
   bash
 
+# 清理缓存以减小镜像大小
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /app/build/ /app/
 COPY --from=builder /app/DockerEntrypoint.sh /app/
 COPY --from=builder /app/x-ui.sh /usr/bin/x-ui
-
 
 # Configure fail2ban
 RUN rm -f /etc/fail2ban/jail.d/alpine-ssh.conf \
